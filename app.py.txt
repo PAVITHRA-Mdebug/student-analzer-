@@ -1,0 +1,89 @@
+import streamlit as st
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+from utils import calculate_stats, detect_outliers
+from report import generate_pdf
+
+st.set_page_config(page_title="Student Analyzer", layout="wide")
+
+st.title("📊 Student Grade Analyzer")
+
+# Upload File
+file = st.file_uploader("Upload CSV File", type=["csv"])
+
+if file:
+    data = pd.read_csv(file)
+
+    st.subheader("Dataset Preview")
+    st.dataframe(data.head())
+
+    # Sidebar Filter
+    st.sidebar.header("Filter")
+    grades = st.sidebar.multiselect(
+        "Select Grades",
+        data['final_grade'].unique(),
+        default=data['final_grade'].unique()
+    )
+
+    filtered_data = data[data['final_grade'].isin(grades)]
+    marks = filtered_data['total_mark']
+
+    # Statistics
+    mean, median, mode, std = calculate_stats(marks)
+
+    st.subheader("Statistics")
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Mean", round(mean, 2))
+    col2.metric("Median", median)
+    col3.metric("Mode", int(mode))
+    col4.metric("Std Dev", round(std, 2))
+
+    # Histogram
+    st.subheader("Marks Distribution")
+    fig1, ax1 = plt.subplots()
+    sns.histplot(marks, kde=True, ax=ax1)
+    st.pyplot(fig1)
+
+    # Boxplot
+    st.subheader("Boxplot")
+    fig2, ax2 = plt.subplots()
+    sns.boxplot(x=marks, ax=ax2)
+    st.pyplot(fig2)
+
+    # Grade Comparison
+    st.subheader("Marks vs Grade")
+    fig3, ax3 = plt.subplots()
+    sns.boxplot(x='final_grade', y='total_mark', data=filtered_data, ax=ax3)
+    st.pyplot(fig3)
+
+    # Scatter Plot
+    st.subheader("Study Hours vs Marks")
+    fig4, ax4 = plt.subplots()
+    sns.scatterplot(
+        x='study_hours_per_week',
+        y='total_mark',
+        data=filtered_data,
+        ax=ax4
+    )
+    st.pyplot(fig4)
+
+    # Outliers
+    outliers = detect_outliers(filtered_data, marks)
+
+    st.subheader("Outliers")
+    st.dataframe(outliers)
+
+    # Download CSV
+    st.download_button(
+        "Download Filtered Data",
+        filtered_data.to_csv(index=False),
+        "filtered_data.csv"
+    )
+
+    # PDF Report
+    if st.button("Generate PDF Report"):
+        generate_pdf(filtered_data)
+        with open("report.pdf", "rb") as f:
+            st.download_button("Download Report", f, "report.pdf")
